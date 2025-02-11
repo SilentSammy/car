@@ -1,4 +1,5 @@
 import machine
+from machine import Pin, PWM
 
 class Car:
     def __init__(self):
@@ -6,15 +7,15 @@ class Car:
         self.max_freq = 100  # Maximum PWM frequency at full throttle
 
         # Motor A (Left)
-        self.ENA = machine.PWM(machine.Pin(5), freq=20, duty=0)
-        self.IN1 = machine.Pin(4, machine.Pin.OUT)
-        self.IN2 = machine.Pin(0, machine.Pin.OUT)
+        self.ENA = PWM(Pin(5), freq=20, duty=0)
+        self.IN1 = Pin(4, Pin.OUT)
+        self.IN2 = Pin(0, Pin.OUT)
         self.MtrA = (self.ENA, self.IN1, self.IN2)
 
         # Motor B (Right)
-        self.ENB = machine.PWM(machine.Pin(14), freq=20, duty=0)
-        self.IN3 = machine.Pin(12, machine.Pin.OUT)
-        self.IN4 = machine.Pin(13, machine.Pin.OUT)
+        self.ENB = PWM(Pin(14), freq=20, duty=0)
+        self.IN3 = Pin(12, Pin.OUT)
+        self.IN4 = Pin(13, Pin.OUT)
         self.MtrB = (self.ENB, self.IN3, self.IN4)
 
         # Initialize both motors to stop
