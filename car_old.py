@@ -18,46 +18,39 @@ class Car:
         self.IN4 = Pin(in4_pin, Pin.OUT)
         self.MtrB = (self.ENB, self.IN3, self.IN4)
 
-        # Control variables
-        self._throttle = 0
-        self._steering = 0
-        self.turn_strength = 1  # Adjust how sharp turns are
-
         # Initialize both motors to stop
-        self.update_motors()
+        set_mode(0, self.MtrA)
+        set_mode(0, self.MtrB)
 
     @property
-    def throttle(self):
-        return self._throttle
+    def left(self):
+        return abs(get_speed(self.MtrA)) * (-1 if get_mode(self.MtrA) == 2 else 1)
 
-    @throttle.setter
-    def throttle(self, value):
-        """ Set overall throttle (-1 to 1) """
-        self._throttle = max(-1, min(1, value))  # Clamp between -1 and 1
-        self.update_motors()
+    @left.setter
+    def left(self, value):
+        """ Set left motor throttle (-1 to 1) """
+        value = max(-1, min(1, value))  # Constrain to -1 to 1
+        self.update_motor(self.MtrA, value)
 
     @property
-    def steering(self):
-        return self._steering
+    def right(self):
+        return abs(get_speed(self.MtrB)) * (-1 if get_mode(self.MtrB) == 2 else 1)
 
-    @steering.setter
-    def steering(self, value):
-        """ Set steering value (-1 to 1) """
-        self._steering = max(-1, min(1, value))  # Clamp between -1 and 1
-        self.update_motors()
+    @right.setter
+    def right(self, value):
+        """ Set right motor throttle (-1 to 1) """
+        value = max(-1, min(1, value))  # Constrain to -1 to 1
+        self.update_motor(self.MtrB, value)
 
-    def update_motors(self):
-        """ Compute and apply motor speeds based on throttle and steering, smoothly transitioning between movement and in-place turning. """
-        left_speed = self._throttle * (1 - abs(self._steering)) + self._steering
-        right_speed = self._throttle * (1 - abs(self._steering)) - self._steering
+    def go(self, throttle):
+        """ Set throttle for both motors """
+        self.left = throttle
+        self.right = throttle
 
-        # Clamp values to -1 to 1 range
-        left_speed = max(-1, min(1, left_speed))
-        right_speed = max(-1, min(1, right_speed))
-
-        # Apply speeds to motors
-        self.update_motor(self.MtrA, left_speed)
-        self.update_motor(self.MtrB, right_speed)
+    def stop(self):
+        """ Stop both motors """
+        self.left = 0
+        self.right = 0
 
     def update_motor(self, motor, throttle):
         """ Update motor speed and mode based on throttle """
@@ -71,12 +64,6 @@ class Car:
         set_speed(speed, motor)
         set_mode(mode, motor)
 
-    def stop(self):
-        """ Stop both motors """
-        self._throttle = 0
-        self._steering = 0
-        self.update_motors()
-
 def set_mode(mode, motor):
     """ Set motor direction """
     _, IN1, IN2 = motor
@@ -86,5 +73,12 @@ def set_mode(mode, motor):
 def set_speed(speed, motor):
     """ Set motor speed (0 to 1 scaled to 1023 PWM) """
     motor[0].duty(int(min(speed * 1023, 1023)))
+
+def get_speed(motor):
+    return round(motor[0].duty() / 1024, 2)
+
+def get_mode(motor):
+    _, IN1, IN2 = motor
+    return (IN2.value() << 1) | IN1.value()
 
 car = Car()
