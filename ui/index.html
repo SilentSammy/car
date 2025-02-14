@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <title>RC Car</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js"></script>
+</head>
+<body onload="load()">
+    <div class="flex-container">
+        <dialog id="settingsDialog">
+            <div id="urlContainer" class="card">
+                <h2>URL</h2>
+                <input type="text" id="urlInput" class="textbox" value="" onchange="saveUrl()" />
+                <button onclick="closeDialog()">Close</button>
+            </div>
+        </dialog>
+
+        <div class="card">
+            <h2>Throttle Limiter</h2>
+            <div class="hstack">
+                <div class="slidecontainer">
+                    <input type="range" min="0" max="100" value="50" step="5" id="throttleSlider" oninput="updateThrottleLimit()" onchange="sendUpdate()">
+                    <span class="slide-label" id="throttleLimit">&nbsp;&nbsp;50%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Steering Limit</h2>
+            <div class="hstack">
+                <div class="slidecontainer">
+                    <input type="range" min="0" max="100" value="50" step="5" id="steeringSlider" oninput="updateSteeringLimit()" onchange="sendUpdate()">
+                    <span class="slide-label" id="steeringLimit">&nbsp;&nbsp;50%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

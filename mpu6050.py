@@ -83,12 +83,35 @@ class MPU6050:
         return ustruct.unpack(">hhh", raw)  # (Gx, Gy, Gz)
 
     def read_gyro(self):
-        """ Read gyroscope values with applied offsets """
+        """ Read gyroscope values (pitch, roll and yaw) with applied offsets """
         Gx, Gy, Gz = self.read_gyro_raw()
-        Gx -= self.gyro_offsets[0]
-        Gy -= self.gyro_offsets[1]
-        Gz -= self.gyro_offsets[2]
+        Gx -= self.gyro_offsets[0] # Pitch
+        Gy -= self.gyro_offsets[1] # Roll
+        Gz -= self.gyro_offsets[2] # Yaw
         return Gx, Gy, Gz  # Returns calibrated values
+
+    def read_gyro_x_raw(self):
+        """ Read raw gyroscope value for Gx (pitch rate) """
+        raw = self.i2c.readfrom_mem(self.addr, 0x43, 2)  # Read 2 bytes for Gx
+        Gx, = ustruct.unpack(">h", raw)  # Unpack as a single short integer
+        return Gx
+
+    def get_pitch_rate(self):
+        """ Get pitch angular velocity (degrees per second) """
+        Gx = self.read_gyro_x_raw()  # Get raw Gx value
+        Gx -= self.gyro_offsets[0]  # Apply offset
+        scale_factor = 131.0  # MPU6050 scale factor for ±250°/s mode
+        Gx_dps = round(Gx / scale_factor, 2)  # Convert to degrees per second
+        return Gx_dps
+
+    def get_pitch_rate_avg(self, samples=10):
+        """ Get average pitch angular velocity (degrees per second) """
+        total_pr = 0
+        for _ in range(samples):
+            pr = self.get_pitch_rate()
+            total_pr += pr
+        avg_pr = total_pr / samples
+        return avg_pr
 
     def get_avel(self):
         """ Get calibrated angular velocity (degrees per second) """
@@ -115,6 +138,27 @@ class MPU6050:
         roll -= self.tilt_offsets[0]
         pitch -= self.tilt_offsets[1]
         return round(roll, 2), round(pitch, 2)
+    
+    def get_pitch_raw(self):
+        """ Compute raw pitch angle in degrees """
+        Ax, Ay, Az = self.read_accel_raw()
+        pitch = math.atan2(Ay, math.sqrt(Ax**2 + Az**2)) * (180 / math.pi)
+        return round(pitch, 2)
+
+    def get_pitch(self):
+        """ Get pitch angle with applied offsets """
+        pitch = self.get_pitch_raw()
+        pitch -= self.tilt_offsets[1]
+        return round(pitch, 2)
+
+    def get_pitch_avg(self, samples=10):
+        """ Get average pitch angle (degrees) """
+        total_pitch = 0
+        for _ in range(samples):
+            pitch = self.get_pitch()
+            total_pitch += pitch
+        avg_pitch = total_pitch / samples
+        return round(avg_pitch, 2)
 
 # Instantiate MPU6050
 mpu = MPU6050(I2C(scl=Pin(16), sda=Pin(2)))
