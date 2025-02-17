@@ -16,9 +16,13 @@ const isMobile = navigator.userAgentData.mobile;
 let isRequestInProgress = false;
 
 function sendUpdate() {
-    // Calculate the state values
-    let throttle = throttleDirection * throttleLimit;
-    let steering = steeringDirection * steeringLimit;
+    function roundToMultiple(value, multiple) {
+        return Math.round(value / multiple) * multiple;
+    }
+    
+    // Calculate the state values and round them to the nearest 0.05
+    let throttle = Number(roundToMultiple(throttleDirection * throttleLimit, 0.05).toFixed(2));
+    let steering = Number(roundToMultiple(steeringDirection * steeringLimit, 0.05).toFixed(2));
 
     // If there was no change, or a request is already in progress, do nothing
     if ((throttle === prevThrottle && steering === prevSteering) || isRequestInProgress) {

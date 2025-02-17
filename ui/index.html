@@ -5,8 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
     <title>RC Car</title>
+    <style>
+        /* Optional styling for your joystick container */
+        #myJoyDiv {
+          flex: auto;
+          width: 200px;
+          height: 200px;
+          align-self: center;
+        }
+    </style>
+    <script src="joy.js"></script>
     <link rel="stylesheet" href="style.css">
     <script src="script.js"></script>
+    <script src="joy.js"></script>
 </head>
 <body onload="load()">
     <div class="flex-container">
@@ -36,6 +47,32 @@
                     <span class="slide-label" id="steeringLimit">&nbsp;&nbsp;50%</span>
                 </div>
             </div>
+        </div>
+
+        <div class="card">
+            <h2>Joystick</h2>
+            <div id="myJoyDiv"></div>
+            <script>
+                // Instantiate the JoyStick after the DOM is available
+                var myJoystick = new JoyStick('myJoyDiv', {
+                    title: "myJoystick",
+                    autoReturnToCenter: true,
+                    internalFillColor: "#FFDE00",    // Change internal (stick) fill color to red
+                    internalStrokeColor: "#000000",  // Change internal (stick) border color to black
+                    externalStrokeColor: "#000000"   // Change external circle color to blue
+                }, function(stickData) {
+                    // Assume stickData.x and stickData.y (as provided by joy.js) are in range -100 .. 100.
+                    // Normalize to range -1 .. 1:
+                    let normX = Number((Math.round((parseFloat(stickData.x) / 100) / 0.05) * 0.05).toFixed(2));
+                    let normY = Number((Math.round((parseFloat(stickData.y) / 100) / 0.05) * 0.05).toFixed(2));
+                    
+                    // Update direction values using these normalized values. For example:
+                    steeringDirection = normX;
+                    throttleDirection = normY;
+                    sendUpdate();
+                    //console.log("Joystick normalized position:", { x: normX, y: normY });
+                });
+            </script>
         </div>
     </div>
 </body>

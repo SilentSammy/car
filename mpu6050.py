@@ -14,6 +14,12 @@ class MPU6050:
         self.gyro_offsets = self.load_offsets("gyro.txt", 3)
         self.tilt_offsets = self.load_offsets("tilt.txt", 2)
 
+    # Calibration
+    def save_offsets(self, filename, offsets):
+        """ Save offsets to a file """
+        with open(filename, "w") as f:
+            f.write("\n".join(map(str, offsets)) + "\n")
+
     def load_offsets(self, filename, expected_length):
         """ Load offsets from file if available, else default to zeros """
         try:
@@ -54,7 +60,7 @@ class MPU6050:
         roll_offset, pitch_offset = 0, 0
 
         for _ in range(samples):
-            roll, pitch = self.get_tilt_raw()
+            roll, pitch, _ = self.get_tilt_raw()
             roll_offset += roll
             pitch_offset += pitch
             time.sleep(0.01)
@@ -67,11 +73,7 @@ class MPU6050:
         self.save_offsets("tilt.txt", self.tilt_offsets)
         print("Tilt calibration complete:", self.tilt_offsets)
 
-    def save_offsets(self, filename, offsets):
-        """ Save offsets to a file """
-        with open(filename, "w") as f:
-            f.write("\n".join(map(str, offsets)) + "\n")
-
+    # Sensor readings
     def read_accel_raw(self):
         """ Read raw accelerometer values (no calibration) """
         raw = self.i2c.readfrom_mem(self.addr, 0x3B, 6)
@@ -82,81 +84,98 @@ class MPU6050:
         raw = self.i2c.readfrom_mem(self.addr, 0x43, 6)
         return ustruct.unpack(">hhh", raw)  # (Gx, Gy, Gz)
 
-    def read_gyro(self):
-        """ Read gyroscope values (pitch, roll and yaw) with applied offsets """
-        Gx, Gy, Gz = self.read_gyro_raw()
-        Gx -= self.gyro_offsets[0] # Pitch
-        Gy -= self.gyro_offsets[1] # Roll
-        Gz -= self.gyro_offsets[2] # Yaw
-        return Gx, Gy, Gz  # Returns calibrated values
-
     def read_gyro_x_raw(self):
         """ Read raw gyroscope value for Gx (pitch rate) """
         raw = self.i2c.readfrom_mem(self.addr, 0x43, 2)  # Read 2 bytes for Gx
         Gx, = ustruct.unpack(">h", raw)  # Unpack as a single short integer
         return Gx
 
-    def get_pitch_rate(self):
-        """ Get pitch angular velocity (degrees per second) """
-        Gx = self.read_gyro_x_raw()  # Get raw Gx value
-        Gx -= self.gyro_offsets[0]  # Apply offset
-        scale_factor = 131.0  # MPU6050 scale factor for ±250°/s mode
-        Gx_dps = round(Gx / scale_factor, 2)  # Convert to degrees per second
-        return Gx_dps
-
-    def get_pitch_rate_avg(self, samples=10):
-        """ Get average pitch angular velocity (degrees per second) """
-        total_pr = 0
+    # Processed gyro data
+    def get_gyro_calibrated(self):
+        """ Read gyroscope values (pitch, roll and yaw) with applied offsets """
+        Gx, Gy, Gz = self.read_gyro_raw()
+        Gx -= self.gyro_offsets[0] # Pitch
+        Gy -= self.gyro_offsets[1] # Roll
+        Gz -= self.gyro_offsets[2] # Yaw
+        Gt = (Gx ** 2 + Gy ** 2 + Gz ** 2) ** 0.5  # Total angular velocity
+        return Gx, Gy, Gz, Gt  # Returns calibrated values
+    
+    def get_avel(self, samples=1):
+        """ Get calibrated angular velocity (degrees per second), optionally averaging over multiple samples """
+        total_Gx, total_Gy, total_Gz, total_Gt = 0, 0, 0, 0
         for _ in range(samples):
-            pr = self.get_pitch_rate()
-            total_pr += pr
-        avg_pr = total_pr / samples
-        return avg_pr
+            Gx, Gy, Gz, Gt = self.get_gyro_calibrated()  # Get corrected gyro values
+            total_Gx += Gx
+            total_Gy += Gy
+            total_Gz += Gz
+            total_Gt += Gt
 
-    def get_avel(self):
-        """ Get calibrated angular velocity (degrees per second) """
-        Gx, Gy, Gz = self.read_gyro()  # Get corrected gyro values
+        avg_Gx = total_Gx / samples
+        avg_Gy = total_Gy / samples
+        avg_Gz = total_Gz / samples
+        avg_Gt = total_Gt / samples
+
         scale_factor = 131.0  # MPU6050 scale factor for ±250°/s mode
 
         # Convert raw values to degrees per second (°/s)
-        Gx_dps = round(Gx / scale_factor, 2)
-        Gy_dps = round(Gy / scale_factor, 2)
-        Gz_dps = round(Gz / scale_factor, 2)
+        Gx_dps = round(avg_Gx / scale_factor, 2)
+        Gy_dps = round(avg_Gy / scale_factor, 2)
+        Gz_dps = round(avg_Gz / scale_factor, 2)
+        Gt_dps = round(avg_Gt / scale_factor, 2)
 
-        return Gx_dps, Gy_dps, Gz_dps  # Returns angular velocity in °/s
+        return Gx_dps, Gy_dps, Gz_dps, Gt_dps  # Returns angular velocity in °/s
 
+    def get_pitch_rate(self, samples=1):
+        """ Get pitch angular velocity (degrees per second), optionally averaging over multiple samples """
+        total_Gx = 0
+        for _ in range(samples):
+            Gx = self.read_gyro_x_raw()  # Get raw Gx value
+            Gx -= self.gyro_offsets[0]  # Apply offset
+            total_Gx += Gx
+        avg_Gx = total_Gx / samples
+        scale_factor = 131.0  # MPU6050 scale factor for ±250°/s mode
+        pitch_rate = round(avg_Gx / scale_factor, 2)  # Convert to degrees per second
+        return pitch_rate
+
+    # Processed accelerometer data
     def get_tilt_raw(self):
         """ Compute raw roll and pitch angles in degrees """
         Ax, Ay, Az = self.read_accel_raw()
         roll = math.atan2(Ax, math.sqrt(Ay**2 + Az**2)) * (180 / math.pi)
         pitch = math.atan2(Ay, math.sqrt(Ax**2 + Az**2)) * (180 / math.pi)
-        return round(roll, 2), round(pitch, 2)
+        tilt = (roll ** 2 + pitch ** 2) ** 0.5  # Pythagorean theorem
+        return roll, pitch, tilt
 
-    def get_tilt(self):
-        """ Get roll and pitch with applied offsets """
-        roll, pitch = self.get_tilt_raw()
-        roll -= self.tilt_offsets[0]
-        pitch -= self.tilt_offsets[1]
-        return round(roll, 2), round(pitch, 2)
-    
     def get_pitch_raw(self):
         """ Compute raw pitch angle in degrees """
         Ax, Ay, Az = self.read_accel_raw()
         pitch = math.atan2(Ay, math.sqrt(Ax**2 + Az**2)) * (180 / math.pi)
-        return round(pitch, 2)
+        return pitch
 
-    def get_pitch(self):
-        """ Get pitch angle with applied offsets """
-        pitch = self.get_pitch_raw()
-        pitch -= self.tilt_offsets[1]
-        return round(pitch, 2)
+    def get_tilt(self, samples=1):
+        """ Get roll and pitch with applied offsets, optionally averaging over multiple samples """
+        total_roll, total_pitch, total_tilt = 0, 0, 0
+        for _ in range(samples):
+            roll, pitch, tilt = self.get_tilt_raw()
+            roll -= self.tilt_offsets[0]
+            pitch -= self.tilt_offsets[1]
+            total_roll += roll
+            total_pitch += pitch
+            total_tilt += tilt
 
-    def get_pitch_avg(self, samples=10):
-        """ Get average pitch angle (degrees) """
+        avg_roll = total_roll / samples
+        avg_pitch = total_pitch / samples
+        total = (avg_roll ** 2 + avg_pitch ** 2) ** 0.5  # Pythagorean theorem
+        return round(avg_roll, 2), round(avg_pitch, 2), round(total, 2)
+
+    def get_pitch(self, samples=1):
+        """ Get pitch angle with applied offsets, optionally averaging over multiple samples """
         total_pitch = 0
         for _ in range(samples):
-            pitch = self.get_pitch()
+            pitch = self.get_pitch_raw()
+            pitch -= self.tilt_offsets[1]
             total_pitch += pitch
+
         avg_pitch = total_pitch / samples
         return round(avg_pitch, 2)
 

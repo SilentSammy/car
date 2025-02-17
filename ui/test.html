@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>My Joystick</title>
+  <style>
+    /* Optional styling for your joystick container */
+    #myJoyDiv {
+      width: 200px;
+      height: 200px;
+      border: 1px solid #ccc;
+    }
+  </style>
+  <script src="joy.js"></script>
+</head>
+<body>
+  <div id="myJoyDiv"></div>
+  <script>
+    // Instantiate the JoyStick with the container ID and optional parameters
+    console.log("Load function called");
+      // Instantiate the JoyStick after the DOM is available
+      var myJoystick = new JoyStick('myJoyDiv', {
+        title: "myJoystick",
+        autoReturnToCenter: true
+      }, function(stickData) {
+        // Assume stickData.x and stickData.y (as provided by joy.js) are in range -100 .. 100.
+        // Normalize to range -1 .. 1:
+        let normX = parseFloat(stickData.x) / 100;
+        let normY = parseFloat(stickData.y) / 100;
+        
+        // Update direction values using these normalized values. For example:
+        steeringDirection = normX;
+        throttleDirection = normY;
+        
+        console.log("Joystick normalized position:", { x: normX, y: normY });
+      });
+  </script>
+</body>
+</html>

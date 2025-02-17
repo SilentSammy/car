@@ -4,43 +4,32 @@ import time
 from car import car
 from mpu6050 import mpu
 
-def print_avel():
+# MPU Test functions
+def print_avel(samples=5):
     while True:
-        avel = mpu.get_avel()
-        print(f"Gx: {avel[0]}, Gy: {avel[1]}, Gz: {avel[2]}")
-        time.sleep(0.25)
-
-def print_avel_avg(samples=5):
-    while True:
-        total = [0, 0, 0]
-        for _ in range(samples):
-            avel = mpu.get_avel()
-            total[0] += avel[0]
-            total[1] += avel[1]
-            total[2] += avel[2]
-            #time.sleep(0.01)
-        avg = [v / samples for v in total]
-        print(f"Gx: {avg[0]}, Gy: {avg[1]}, Gz: {avg[2]}")
+        Gx, Gy, Gz, total = mpu.get_avel(samples)
+        print(f"Gx: {Gx}, Gy: {Gy}, Gz: {Gz}, Total: {total}")
         time.sleep(0.2)
 
-def print_pitch_rate_avg(samples=5):
+def print_pitch_rate(samples=5):
     while True:
-        pr = mpu.get_pitch_rate_avg(samples)
+        pr = mpu.get_pitch_rate(samples)
         print(f"{pr}")
         time.sleep(0.2)
 
-def print_pitch_avg(samples = 5):
+def print_tilt(samples = 5):
     while True:
-        p = mpu.get_pitch_avg(samples)
+        roll, pitch, total = mpu.get_tilt(samples)
+        print(f"Roll: {roll}, Pitch: {pitch}, Total: {total}")
+        time.sleep(0.2)
+
+def print_pitch(samples = 5):
+    while True:
+        p = mpu.get_pitch(samples)
         print(f"{p}")
         time.sleep(0.2)
 
-def print_tilt():
-    while True:
-        roll, pitch = mpu.get_tilt()
-        print(f"Pitch: {pitch}, Roll: {roll}")
-        time.sleep(0.25)
-
+# Car test functions
 def test_sequence():
     time.sleep(5)
 
@@ -67,31 +56,38 @@ def test_sequence():
     # Stop
     car.stop()
 
-def hold_pitch_test():
-    print("Starting test in 5 seconds...")
+def aim_up(threshold=1, timeout=10000, spin_time=200, pause_time=150):
+    """ Aligns the car to face uphill using spin-pause cycles to reduce accelerometer noise. """
+    print("Test starting in 5 seconds...")
     time.sleep(5)
 
-    start_pitch = mpu.get_pitch_avg(10)  # Average pitch over 10 readings
-    print(f"Starting pitch: {start_pitch}")
+    try:
+        start_time = time.ticks_ms()  # Record start time
+        while time.ticks_diff(time.ticks_ms(), start_time) < timeout:
+            # Read current tilt values
+            roll, pitch, total = mpu.get_tilt()
 
-    start_time = time.ticks_ms()
-    duration = 1000  # Run test for 10 seconds
+            # Compute pitch error
+            error = total - pitch  # We want pitch to match total incline
 
-    while time.ticks_diff(time.ticks_ms(), start_time) < duration:
-        current_pitch = mpu.get_pitch_avg(5)  # Get pitch angle
-        error = start_pitch - current_pitch  # Difference from target pitch
+            # Determine steering direction based on roll (FIXED direction)
+            steering_direction = -1 if roll < 0 else 1  
 
-        # Simple proportional control
-        Kp = 0.05  # Proportional gain (tweak this value)
-        correction = Kp * error  # Compute throttle correction
+            # Compute proportional steering value and scale by 0.3
+            raw_steering = steering_direction * error * 0.05  
+            car.steering = raw_steering * 0.3  
 
-        # Clamp throttle to -1 to 1
-        car.throttle = max(-0.5, min(0.5, correction))
+            print(f"Aligning... Roll: {roll:.2f}, Pitch: {pitch:.2f}, Target: {total:.2f}, Error: {error:.2f}, Raw Steering: {raw_steering:.2f}, Scaled Steering: {car.steering:.2f}")
 
-        print(f"Pitch: {current_pitch}, Throttle: {car.throttle}")
+            # Spin for a short duration
+            time.sleep(spin_time / 1000)
 
-    car.stop()
-    print("Test complete.")
+            # Stop briefly to let accelerometer settle
+            car.steering = 0  
+            time.sleep(pause_time / 1000)
+
+    finally:
+        car.stop()
 
 def main():
     def receive_state(r):
@@ -102,7 +98,6 @@ def main():
         car.steering = float(r['params'].get('s', car.steering))
         
         # Print received values
-        print("Received:", car.throttle, car.steering)
         return {"t": car.throttle, "s": car.steering}
 
     print("Starting program...")
@@ -116,3 +111,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    pass
