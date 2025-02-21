@@ -93,48 +93,48 @@ class MPU6050:
     # Processed gyro data
     def get_gyro_calibrated(self):
         """ Read gyroscope values (pitch, roll and yaw) with applied offsets """
-        Gx, Gy, Gz = self.read_gyro_raw()
-        Gx -= self.gyro_offsets[0] # Pitch
-        Gy -= self.gyro_offsets[1] # Roll
-        Gz -= self.gyro_offsets[2] # Yaw
-        Gt = (Gx ** 2 + Gy ** 2 + Gz ** 2) ** 0.5  # Total angular velocity
-        return Gx, Gy, Gz, Gt  # Returns calibrated values
+        pitch_rate, roll_rate, yaw_rate = self.read_gyro_raw()
+        pitch_rate -= self.gyro_offsets[0]  # Pitch
+        roll_rate -= self.gyro_offsets[1]  # Roll
+        yaw_rate -= self.gyro_offsets[2]  # Yaw
+        spin = (pitch_rate ** 2 + roll_rate ** 2 + yaw_rate ** 2) ** 0.5  # Total angular velocity
+        return pitch_rate, roll_rate, yaw_rate, spin  # Returns calibrated values
     
     def get_avel(self, samples=1):
         """ Get calibrated angular velocity (degrees per second), optionally averaging over multiple samples """
-        total_Gx, total_Gy, total_Gz, total_Gt = 0, 0, 0, 0
+        total_pitch_rate, total_roll_rate, total_yaw_rate, total_spin = 0, 0, 0, 0
         for _ in range(samples):
-            Gx, Gy, Gz, Gt = self.get_gyro_calibrated()  # Get corrected gyro values
-            total_Gx += Gx
-            total_Gy += Gy
-            total_Gz += Gz
-            total_Gt += Gt
+            pitch_rate, roll_rate, yaw_rate, spin = self.get_gyro_calibrated()  # Get corrected gyro values
+            total_pitch_rate += pitch_rate
+            total_roll_rate += roll_rate
+            total_yaw_rate += yaw_rate
+            total_spin += spin
 
-        avg_Gx = total_Gx / samples
-        avg_Gy = total_Gy / samples
-        avg_Gz = total_Gz / samples
-        avg_Gt = total_Gt / samples
+        avg_pitch_rate = total_pitch_rate / samples
+        avg_roll_rate = total_roll_rate / samples
+        avg_yaw_rate = total_yaw_rate / samples
+        avg_spin = total_spin / samples
 
         scale_factor = 131.0  # MPU6050 scale factor for ±250°/s mode
 
         # Convert raw values to degrees per second (°/s)
-        Gx_dps = round(avg_Gx / scale_factor, 2)
-        Gy_dps = round(avg_Gy / scale_factor, 2)
-        Gz_dps = round(avg_Gz / scale_factor, 2)
-        Gt_dps = round(avg_Gt / scale_factor, 2)
+        pitch_rate_dps = round(avg_pitch_rate / scale_factor, 2)
+        roll_rate_dps = round(avg_roll_rate / scale_factor, 2)
+        yaw_rate_dps = round(avg_yaw_rate / scale_factor, 2)
+        spin_dps = round(avg_spin / scale_factor, 2)
 
-        return Gx_dps, Gy_dps, Gz_dps, Gt_dps  # Returns angular velocity in °/s
+        return pitch_rate_dps, roll_rate_dps, yaw_rate_dps, spin_dps  # Returns angular velocity in °/s
 
     def get_pitch_rate(self, samples=1):
         """ Get pitch angular velocity (degrees per second), optionally averaging over multiple samples """
-        total_Gx = 0
+        total_pr = 0
         for _ in range(samples):
-            Gx = self.read_gyro_x_raw()  # Get raw Gx value
-            Gx -= self.gyro_offsets[0]  # Apply offset
-            total_Gx += Gx
-        avg_Gx = total_Gx / samples
+            pitch_rate = self.read_gyro_x_raw()  # Get raw Gx value
+            pitch_rate -= self.gyro_offsets[0]  # Apply offset
+            total_pr += pitch_rate
+        avg_pr = total_pr / samples
         scale_factor = 131.0  # MPU6050 scale factor for ±250°/s mode
-        pitch_rate = round(avg_Gx / scale_factor, 2)  # Convert to degrees per second
+        pitch_rate = round(avg_pr / scale_factor, 2)  # Convert to degrees per second
         return pitch_rate
 
     # Processed accelerometer data

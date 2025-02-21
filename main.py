@@ -3,6 +3,15 @@ import machine
 import time
 from car import car
 from mpu6050 import mpu
+from averager import MeasurementAverager
+
+def test():
+    with MeasurementAverager(sample_function=lambda: mpu.get_avel()[2], interval=10) as yaw_averager:
+        while True:
+            # Inside this block, yaw_averager is active and sampling.
+            time.sleep(0.5)  # Let it collect some samples
+            avg_yaw = yaw_averager.average_since_last_measurement()
+            print("Averaged yaw rate:", avg_yaw)
 
 # MPU Test functions
 def print_avel(samples=5):
@@ -89,6 +98,117 @@ def aim_up(threshold=1, timeout=10000, spin_time=200, pause_time=150):
     finally:
         car.stop()
 
+def spin_at_rate1(dps=5, timeout=10000, interval=50):
+    """ Spins the car at a constant rate using a PID loop with a Timer. """
+    tmr = machine.Timer(-1)  # Create a software timer
+    try:
+        print("Starting spin in 5 seconds...")
+        time.sleep(5)
+        start_time = time.ticks_ms()  # Record start time
+
+        # PID Variables
+        Kp = 0.02  # Proportional gain (adjust as needed)
+        Ki = 0.001  # Integral gain
+        Kd = 0.005  # Derivative gain
+        integral = 0
+        last_error = 0
+
+        def pid_control(t):
+            """ PID loop to maintain constant spin rate. """
+            nonlocal integral, last_error
+
+            # Read current yaw rate (Z-axis) from the gyro
+            _, _, yaw_rate, _ = mpu.get_avel()  
+
+            # Compute error
+            error = dps - yaw_rate  
+
+            # PID Terms
+            integral += error  # Accumulate integral term
+            derivative = error - last_error  # Compute derivative term
+            last_error = error  # Store last error for next iteration
+
+            # Compute PID output (steering adjustment)
+            output = (Kp * error) + (Ki * integral) + (Kd * derivative)
+
+            # Apply steering (scale if needed)
+            car.steering = max(-1, min(1, output))
+
+            print(f"Yaw: {yaw_rate:.2f}°/s, Target: {dps}°/s, Error: {error:.2f}, Steering: {car.steering:.2f}")
+
+            # Stop the timer when timeout is reached
+            if time.ticks_diff(time.ticks_ms(), start_time) >= timeout:
+                tmr.deinit()
+                car.stop()
+                print("Spin complete.")
+
+        # Start the PID loop using the timer (runs at a fixed interval)
+        tmr.init(period=interval, mode=machine.Timer.PERIODIC, callback=pid_control)
+
+        # Wait for the timeout to complete
+        while time.ticks_diff(time.ticks_ms(), start_time) < timeout:
+            pass
+    finally:
+        tmr.deinit()
+        car.stop()
+
+def spin_at_rate(dps=5, timeout=10000, interval=50, Kp = 0.02, Ki = 0.001, Kd = 0.005):
+    """ Spins the car at a constant rate using a PID loop with a Timer. """
+    tmr = machine.Timer(-1)  # Create a software timer
+    try:
+        print("Starting spin in 5 seconds...")
+        time.sleep(5)
+        start_time = time.ticks_ms()  # Record start time
+
+        # PID Variables
+        integral = 0
+        last_error = 0
+
+        def pid_control(t):
+            nonlocal integral, last_error
+
+            # Read current yaw rate (Z-axis) from the gyro
+            # Assuming mpu.get_avel() returns (Gx_dps, Gy_dps, Gz_dps)
+            _, _, yaw_rate, _ = mpu.get_avel()
+            yaw_rate = -yaw_rate  # Invert yaw rate for Z-axis
+
+            # Compute error (desired rate minus current rate)
+            error = dps - yaw_rate
+
+            # Update integral (with anti-windup)
+            integral += error
+            # Cap the integral term using min and max functions
+            integral = max(-100, min(100, integral))
+
+            # Derivative term
+            derivative = error - last_error
+            last_error = error
+
+            # PID output
+            output = (Kp * error) + (Ki * integral) + (Kd * derivative)
+
+            # Apply steering adjustment (ensure within [-1, 1])
+            car.steering = max(-0.35, min(0.35, output))
+
+            print(f"Yaw: {yaw_rate:.2f}°/s, Target: {dps}°/s, Error: {error:.2f}, Steering: {car.steering:.2f}")
+
+            # Stop the timer and car when timeout is reached
+            if time.ticks_diff(time.ticks_ms(), start_time) >= timeout:
+                tmr.deinit()
+                car.stop()
+                print("Spin complete.")
+
+        # Start the PID loop using the timer (fixed interval)
+        tmr.init(period=interval, mode=machine.Timer.PERIODIC, callback=pid_control)
+
+        # Wait until the timeout is reached
+        while time.ticks_diff(time.ticks_ms(), start_time) < timeout:
+            pass
+
+    finally:
+        tmr.deinit()
+        car.stop()
+
 def main():
     def receive_state(r):
         print("Received:", r)
@@ -110,5 +230,5 @@ def main():
     web.start_webserver(endpoints)
 
 if __name__ == "__main__":
-    main()
+    # main()
     pass

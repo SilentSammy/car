@@ -63,22 +63,30 @@ function sendUpdate() {
 
         // Assemble and send request
         const requestUrl = `${currentUrl}/?${params.toString()}`;
-        fetch(requestUrl)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        fetch(requestUrl, { signal: controller.signal })
             .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
             })
             .then(data => {
-                console.log(data);
+            console.log(data);
             })
             .catch(error => {
+            if (error.name === 'AbortError') {
+                console.error('Fetch request timed out');
+            } else {
                 console.error('There has been a problem with your fetch operation:', error);
+            }
             })
             .finally(() => {
-                isRequestInProgress = false;
-                sendUpdate();
+            clearTimeout(timeoutId);
+            isRequestInProgress = false;
+            sendUpdate();
             });
     }
 }
