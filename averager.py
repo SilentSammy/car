@@ -13,6 +13,9 @@ class MeasurementAverager:
         self._sum = None   # Running total of samples
         self._count = 0    # Number of samples taken
         
+        # Take the first measurement immediately, to avoid missing any samples
+        self._sample_callback(None)
+
         # Set up the timer for periodic sampling
         self.timer = machine.Timer(-1)
         self.timer.init(period=self.interval, mode=machine.Timer.PERIODIC, callback=self._sample_callback)
@@ -44,6 +47,9 @@ class MeasurementAverager:
         # Reset the accumulator and sample count
         self._sum = None
         self._count = 0
+
+        # Take the next measurement immediately, to avoid missing any samples
+        self._sample_callback(None)
         return avg
 
     def stop(self):
