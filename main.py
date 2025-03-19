@@ -200,6 +200,11 @@ def motor_test(m, freq):
     tmr.init(period=50, mode=machine.Timer.PERIODIC, callback=timer_callback)
 
 def main():
+    tmr = machine.Timer(-1)
+
+    def refresh(t):
+        car.update_motors()
+
     def receive_state(r):
         print("Received:", r)
 
@@ -210,15 +215,21 @@ def main():
         # Print received values
         return {"t": car.throttle, "s": car.steering}
 
-    print("Starting program...")
+    try:
+        print("Starting program...")
+        tmr.init(period=20, mode=machine.Timer.PERIODIC, callback=refresh)
+        # Set up web server
+        endpoints = {
+            "ctrl": receive_state
+        }
+        web.connect_wifi()
+        # web.start_access_point()
 
-    # Set up web server
-    endpoints = {
-        "ctrl": receive_state
-    }
-    web.connect_wifi()
-    # web.start_access_point()
-    web.start_webserver(endpoints)
+        web.start_webserver(endpoints)
+    except Exception as e:
+        print("Error:", e)
+        car.stop()
+        tmr.deinit()
 
 if __name__ == "__main__":
     # main()

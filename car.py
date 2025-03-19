@@ -64,12 +64,13 @@ class Car:
         speed = abs(throttle)
         mode = 0 if throttle == 0 else (1 if throttle > 0 else 2)  # 0 = Stop, 1 = Forward, 2 = Reverse
 
-        # Direct multiplication scaling, clamped to min_freq
-        new_freq = max(self.min_freq, int(self.max_freq * speed))
-        motor[0].freq(new_freq)  # Dynamically update PWM frequency
 
         set_mode(mode, motor)
         set_speed(speed, motor)
+        
+        # Direct multiplication scaling, clamped to min_freq
+        new_freq = max(self.min_freq, int(self.max_freq * speed))
+        motor[0].freq(new_freq)  # Dynamically update PWM frequency
 
     def stop(self):
         """ Stop both motors """
