@@ -217,6 +217,7 @@ def main():
         "ctrl": receive_state
     }
     web.connect_wifi()
+    # web.start_access_point()
     web.start_webserver(endpoints)
 
 if __name__ == "__main__":

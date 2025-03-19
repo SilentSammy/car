@@ -17,6 +17,21 @@ def sync_time():
     except OSError:
         print("Failed to sync time")
 
+def start_access_point(pwd=""):
+    ap = network.WLAN(network.AP_IF)
+    ap.active(True)
+    essid = 'MyESP_Hotspot'
+    
+    if pwd:
+        # Protected access point with WPA/WPA2
+        ap.config(essid=essid, password=pwd, authmode=network.AUTH_WPA_WPA2_PSK)
+    else:
+        # Open access point (no password)
+        ap.config(essid=essid, authmode=network.AUTH_OPEN)
+    
+    print("Access Point started with IP:", ap.ifconfig()[0])
+    sync_time()
+
 def connect_wifi(wait = True):
     with open("wifi.txt", "r") as file:
         ssid = file.readline().strip()

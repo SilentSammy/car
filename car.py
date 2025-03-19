@@ -2,7 +2,7 @@ import machine
 from machine import Pin, PWM
 
 class Car:
-    def __init__(self, ena_pin=5, in1_pin=4, in2_pin=0, enb_pin=14, in3_pin=12, in4_pin=13):
+    def __init__(self, ena_pin=32, in1_pin=14, in2_pin=27, enb_pin=33, in3_pin=26, in4_pin=25):
         self.min_freq = 5   # Minimum PWM frequency at low speeds
         self.max_freq = 100  # Maximum PWM frequency at full throttle
 
@@ -62,14 +62,14 @@ class Car:
     def update_motor(self, motor, throttle):
         """ Update motor speed and mode based on throttle """
         speed = abs(throttle)
-        mode = 1 if throttle >= 0 else 2  # 1 = Forward, 2 = Reverse
+        mode = 0 if throttle == 0 else (1 if throttle > 0 else 2)  # 0 = Stop, 1 = Forward, 2 = Reverse
 
         # Direct multiplication scaling, clamped to min_freq
         new_freq = max(self.min_freq, int(self.max_freq * speed))
         motor[0].freq(new_freq)  # Dynamically update PWM frequency
 
-        set_speed(speed, motor)
         set_mode(mode, motor)
+        set_speed(speed, motor)
 
     def stop(self):
         """ Stop both motors """
