@@ -10,7 +10,6 @@ server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 wlan = network.WLAN(network.STA_IF)
 
 def sync_time():
-    return
     try:
         ntptime.settime()
         print("Time synced")
@@ -30,7 +29,6 @@ def start_access_point(pwd=""):
         ap.config(essid=essid, authmode=network.AUTH_OPEN)
     
     print("Access Point started with IP:", ap.ifconfig()[0])
-    sync_time()
 
 def connect_wifi(wait=True):
     with open("wifi.txt", "r") as file:
@@ -46,7 +44,6 @@ def connect_wifi(wait=True):
             time.sleep(1)
         if wlan.isconnected():
             print("Connected to", wlan.config('ssid'), "with IP", wlan.ifconfig()[0])
-            sync_time()
         else:
             print("Failed to connect to", ssid)
 

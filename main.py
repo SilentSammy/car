@@ -1,3 +1,4 @@
+import asyncio
 import web
 import machine
 import time
@@ -217,17 +218,21 @@ def main():
 
     try:
         print("Starting program...")
-        tmr.init(period=20, mode=machine.Timer.PERIODIC, callback=refresh)
-        # Set up web server
-        endpoints = {
-            "ctrl": receive_state
-        }
+        
+        # tmr.init(period=20, mode=machine.Timer.PERIODIC, callback=refresh)
+        
+        # Connect to network
         web.connect_wifi()
         # web.start_access_point()
 
+        # Set up web server
+        endpoints = {
+            "ctrl": receive_state,
+        }
         web.start_webserver(endpoints)
     except Exception as e:
         print("Error:", e)
+    finally:
         car.stop()
         tmr.deinit()
 

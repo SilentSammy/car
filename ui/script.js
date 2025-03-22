@@ -1,1 +1,191 @@
-let throttleDirection=0,throttleLimit=.5,steeringDirection=0,steeringLimit=.5,prevThrottle=0,prevSteering=0;const isLocalDocument="file:"===window.location.protocol||"content:"===window.location.protocol,isMobile=navigator.userAgentData.mobile;let isRequestInProgress=!1;function sendUpdate(){function e(e,t){return Math.round(e/t)*t}let t=Number(e(throttleDirection*throttleLimit,.05).toFixed(2)),o=Number(e(steeringDirection*steeringLimit,.05).toFixed(2));if(t===prevThrottle&&o===prevSteering||isRequestInProgress){console.log("No change or request in progress");return}{isRequestInProgress=!0;let r=new URLSearchParams;o!==prevSteering&&r.append("s",o),t!==prevThrottle&&r.append("t",t),console.log(JSON.stringify(Object.fromEntries(r.entries()))),prevThrottle=t,prevSteering=o;let i;isLocalDocument?i=document.getElementById("urlInput").value:(i=`${window.location.protocol}//${window.location.hostname}`,window.location.port&&(i+=`:${window.location.port}`)),console.log("Current URL:",i);let n=`${i}/?${r.toString()}`,l=new AbortController,s=setTimeout(()=>l.abort(),2e3);fetch(n,{signal:l.signal}).then(e=>{if(!e.ok)throw Error("Network response was not ok");return e.json()}).then(e=>{console.log(e)}).catch(e=>{"AbortError"===e.name?console.error("Fetch request timed out"):console.error("There has been a problem with your fetch operation:",e)}).finally(()=>{clearTimeout(s),isRequestInProgress=!1,sendUpdate()})}}function updateThrottleLimit(){let e=document.getElementById("throttleSlider"),t=document.getElementById("throttleLimit"),o=e.value;o=o.padStart(3," ").replace(/ /g,"\xa0")+"%",t.innerText=o,throttleLimit=e.value/100}function updateSteeringLimit(){let e=document.getElementById("steeringSlider"),t=document.getElementById("steeringLimit"),o=e.value;o=o.padStart(3," ").replace(/ /g,"\xa0")+"%",t.innerText=o,steeringLimit=e.value/100}function load(){function e(e){let t=this.querySelector('input[type="radio"]');t&&e.target!==t&&t.click()}console.log("isMobile:",isMobile),console.log("isLocalDocument:",isLocalDocument);let t=document.querySelectorAll(".radio-container");function o(e,t){let o=!0;switch(e.key){case"w":throttleDirection=t?1:0;break;case"s":throttleDirection=t?-1:0;break;case"a":steeringDirection=t?-1:0;break;case"d":steeringDirection=t?1:0;break;default:o=!1}o&&sendUpdate()}t.forEach(t=>{t.addEventListener("click",e)}),isMobile?document.querySelectorAll(".desktop").forEach(e=>e.style.display="none"):document.querySelectorAll(".mobile").forEach(e=>e.style.display="none"),isLocalDocument&&(document.getElementById("settingsDialog").showModal(),document.getElementById("urlInput").value=localStorage.getItem("url")),document.addEventListener("keydown",function(e){o(e,!0)}),document.addEventListener("keyup",function(e){o(e,!1)})}function saveUrl(){let e=document.getElementById("urlInput");localStorage.setItem("url",e.value)}function closeDialog(){document.getElementById("settingsDialog").close()}
+// Limits and directions
+let throttleDirection = 0;
+let throttleLimit = 0.5;
+let steeringDirection = 0;
+let steeringLimit = 0.5;
+
+// Previous state values
+let prevThrottle = 0;
+let prevSteering = 0;
+
+// Browser data
+const isLocalDocument = window.location.protocol === 'file:' || window.location.protocol === 'content:';
+const isMobile = navigator.userAgentData.mobile;
+
+// Request variables
+let isRequestInProgress = false;
+
+function sendUpdate() {
+    function roundToMultiple(value, multiple) {
+        return Math.round(value / multiple) * multiple;
+    }
+    
+    // Calculate the state values and round them to the nearest n% of the limit
+    let resolutionThrottle = throttleLimit * 0.2;
+    let resolutionSteering = steeringLimit * 0.2;
+    let throttle = Number(roundToMultiple(throttleDirection * throttleLimit, resolutionThrottle).toFixed(2));
+    let steering = Number(roundToMultiple(steeringDirection * steeringLimit, resolutionSteering).toFixed(2));
+
+    // If there was no change, or a request is already in progress, do nothing
+    if ((throttle === prevThrottle && steering === prevSteering) || isRequestInProgress) {
+        console.log('No change or request in progress');
+        return;
+    }
+    else {
+        // We start a new request
+        isRequestInProgress = true;
+
+        // Determine which values changed, and append them to params
+        let params = new URLSearchParams();
+        if (steering !== prevSteering) {
+            params.append('s', steering);
+        }
+        if (throttle !== prevThrottle) {
+            params.append('t', throttle);
+        }
+        
+        // Print the parameters to the console, as JSON
+        console.log(JSON.stringify(Object.fromEntries(params.entries())));
+
+        // Save the current state values
+        prevThrottle = throttle;
+        prevSteering = steering;
+        
+        // Determine URL
+        let currentUrl;
+        if (isLocalDocument) { // If local file, use user-provided URL
+            currentUrl = document.getElementById('urlInput').value;
+        } else { // If hosted, use current base URL
+            currentUrl = `${window.location.protocol}//${window.location.hostname}`;
+            if (window.location.port) {
+                currentUrl += `:${window.location.port}`;
+            }
+        }
+        console.log('Current URL:', currentUrl);
+
+        // Assemble and send request
+        const requestUrl = `${currentUrl}/?${params.toString()}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 500);
+
+        fetch(requestUrl, { signal: controller.signal })
+            .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+            })
+            .then(data => {
+            console.log(data);
+            })
+            .catch(error => {
+            if (error.name === 'AbortError') {
+                console.error('Fetch request timed out');
+            } else {
+                console.error('There has been a problem with your fetch operation:', error);
+            }
+            })
+            .finally(() => {
+            clearTimeout(timeoutId);
+            isRequestInProgress = false;
+            setTimeout(() => sendUpdate(), 0); // Artificial delay to prevent spamming the server
+            sendUpdate();
+            });
+    }
+}
+
+function updateThrottleLimit() {
+    const throttleLimitSlider = document.getElementById('throttleSlider');
+    const throttleLimitLabel = document.getElementById('throttleLimit');
+    let value = throttleLimitSlider.value;
+
+    // Pad the value with non-breaking spaces to ensure it is always 3 characters long
+    value = value.padStart(3, ' ').replace(/ /g, '\u00A0') + "%";
+    throttleLimitLabel.innerText = value;
+
+    // Update the throttle limit
+    throttleLimit = throttleLimitSlider.value / 100;
+}
+function updateSteeringLimit() {
+    const steeringLimitSlider = document.getElementById('steeringSlider');
+    const steeringLimitLabel = document.getElementById('steeringLimit');
+    let value = steeringLimitSlider.value;
+
+    // Pad the value with non-breaking spaces to ensure it is always 3 characters long
+    value = value.padStart(3, ' ').replace(/ /g, '\u00A0') + "%";
+    steeringLimitLabel.innerText = value;
+
+    // Update the steering limit
+    steeringLimit = steeringLimitSlider.value / 100;
+}
+
+function load() {
+    // Generic function to propagate click to child radio button
+    function propagateClickToRadioButton(event) {
+        const radioButton = this.querySelector('input[type="radio"]');
+        if (radioButton && event.target !== radioButton) {
+            radioButton.click();
+        }
+    }
+
+    console.log('isMobile:', isMobile);
+    console.log('isLocalDocument:', isLocalDocument);
+    
+    // Add click event listeners to radio containers
+    const radioContainers = document.querySelectorAll('.radio-container');
+    radioContainers.forEach(container => {
+        container.addEventListener('click', propagateClickToRadioButton);
+    });
+
+    if (isMobile) {
+        document.querySelectorAll('.desktop').forEach(element => element.style.display = 'none');
+    } else {
+        document.querySelectorAll('.mobile').forEach(element => element.style.display = 'none');
+    }
+    
+    if (isLocalDocument) { // If local file, show settings dialog
+        document.getElementById('settingsDialog').showModal();
+        document.getElementById('urlInput').value = localStorage.getItem('url');
+    }
+
+    function handleKeyEvent(event, isKeyDown) {
+        let keyHandled = true;
+        switch(event.key) {
+            case 'w':
+                throttleDirection = isKeyDown ? 1 : 0;
+                break;
+            case 's':
+                throttleDirection = isKeyDown ? -1 : 0;
+                break;
+            case 'a':
+                steeringDirection = isKeyDown ? -1 : 0;
+                break;
+            case 'd':
+                steeringDirection = isKeyDown ? 1 : 0;
+                break;
+            default:
+                keyHandled = false;
+        }
+        if (keyHandled) {
+            sendUpdate();
+        }
+    }
+    
+    document.addEventListener('keydown', function(event) {
+        handleKeyEvent(event, true);
+    });
+    
+    document.addEventListener('keyup', function(event) {
+        handleKeyEvent(event, false);
+    });
+}
+
+function saveUrl() {
+    const urlInput = document.getElementById('urlInput');
+    localStorage.setItem('url', urlInput.value);
+}
+
+// Function to close the dialog
+function closeDialog() {
+    document.getElementById('settingsDialog').close();
+}

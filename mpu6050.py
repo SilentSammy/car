@@ -150,4 +150,4 @@ class MPU6050:
         return round(pitch, 2)
 
 # Instantiate MPU6050
-mpu = MPU6050(I2C(scl=Pin(22), sda=Pin(21)))
+mpu = MPU6050(I2C(scl=Pin(16), sda=Pin(2)))
